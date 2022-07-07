@@ -2,26 +2,27 @@ include("dateTimeFormatter.jl")
 include("filter.jl")
 
 using Pkg
-Pkg.add("PyCall")
+# Pkg.add("PyCall")
 Pkg.add("CSV")
-Pkg.add("XLSX")
+# Pkg.add("XLSX")
 Pkg.add("DataFrames")
 Pkg.add("Dates")
 Pkg.add("Plots")
+# Pkg.add("StatsPlots")
 using CSV
-using XLSX
+# using XLSX
 using DataFrames
 using Dates
 using Plots
-using PyCall
-np = pyimport("numpy")
-dt = pyimport("datetime")
+# using PyCall
+# using StatsPlots
+# np = pyimport("numpy")
+# dt = pyimport("datetime")
 
 # path = joinpath(pwd(), "SWaT_Dataset_Attack_v0_CSV.csv")
 # df = CSV.File(path) |> DataFrame
 # rename!(df,:" Timestamp" => :"Timestamp")
 # first(df, 10)
-# select!(df, r"101")
 # df.Timestamp = Dates.Date.(df.Timestamp |> Array, Dates.DateFormat("m/d/Y")) .+ Dates.Year(2000)
 # column_names = names(df)
 # namess = union(filter(s->occursin(r"P1", s), column_names), filter(s->occursin(r"101", s), column_names)) 
@@ -29,17 +30,34 @@ dt = pyimport("datetime")
 df_file_loc = "SWaT_Dataset_Attack_v0_CSV.csv"
 
 df = CSV.File(df_file_loc) |> DataFrame
-rename!(df,:" Timestamp" => :"Timestamp")
-df_total_rows = nrow(df)
 
-plot(
-    df[!, :Timestamp],
-    df[!, :FIT101],
-    title = "FIT101",
-    xlabel = "Date&time",
-    ylabel = "Value",
-    legend = :topleft,
-)
+rename!(df,:" Timestamp" => :"Timestamp")
+dates = df[!, :Timestamp]
+
+p5 = r"50"
+p6 = r"60"
+p7 = r"Timestamp"
+select!(df, Regex(join([p5.pattern,p6.pattern, p7.pattern], "|")))
+df_total_rows = nrow(df)
+column_names = names(df)
+
+fig_y = 17 *5 * ncol(df)
+fig_x = 17 * 160
+plot(layout = (17), size = (fig_x, fig_y))
+# date_format = DateFormat(" d/m/y H:M:S p") 
+# datesToDisplay = Dates.DateTime.(dates,date_format)
+# datesToDisplay = Dates.Date.(datesToDisplay)
+# unique!(datesToDisplay)
+
+for (index, col) in enumerate(eachcol(df))
+    if index == 1
+        continue
+    end
+    display(plot!(subplot = index-1,
+    dates,
+    col
+    ))
+end
 
 # Dataset Start Time and End Time
 df_time_start = convert(String, df[1, :]["Timestamp"])
@@ -151,44 +169,11 @@ stages1, anomalies1 = anomalies(file_loc)
 stages1
 anomalies1
 
-time_delta = Dates.Second(1)
-# time_start, time_end, filtered_anomalies = filter.get_times(anomalies, None)
+# anomaly = anomalies1[4]
+# anomaly_idx = range(start = Dates.value(anomaly.timeStart), length = Dates.value(anomaly.timeEnd) - Dates.value(anomaly.timeStart))
+# plot!(subplot = 8, anomaly_idx, color="darkred", linewidth=6, alpha=0.8)
 
-# time_start -= 300
-# time_end += 300
+#anomaly_idx = anomaly["time_start"] + np.arange(0, int((anomaly["time_end"] - anomaly["time_start"])/time_delta), 1)
+# plot!(anomaly_idx, loc, color=color_anomaly, linewidth=6, alpha=0.8)
 
-# time_len = int((time_end - time_start) / time_delta)
-
-# x = time_start + np.arange(0, time_len, 1)
-# idx_start = int((time_start - df_time_start) / time_delta)
-# idx_end = int((time_end - df_time_start) / time_delta)
-
-# # remove old
-# output_dir = "../output"
-# file_loc = os.path.join(output_dir, "all.png")
-# os.remove(file_loc)
-
-# obj = {
-#     "log_prefix": "",
-#     "name": "all",
-#     "file_loc": "../output/all.png", 
-#     "df": df, 
-#     "time_start": time_start, 
-#     "time_delta": time_delta, 
-#     "idx_start": idx_start, 
-#     "idx_end": idx_end,
-#     "filtered_anomalies": filtered_anomalies,
-#     # "title": "All stages together",
-#     "title": "",
-#     "x": x
-# }
-# plot.process(obj)
-
-# plot(
-#     df[df["Country/Region"] .== "US", :Date],
-#     df[df["Country/Region"] .== "US", :Cases],
-#     title = "Confirmed cases US",
-#     xlabel = "Date",
-#     ylabel = "Number of cases",
-#     legend = false,
-# )
+# time_delta = Dates.Second(1)
