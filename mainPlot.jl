@@ -2,22 +2,14 @@ include("dateTimeFormatter.jl")
 include("filter.jl")
 
 using Pkg
-# Pkg.add("PyCall")
 Pkg.add("CSV")
-# Pkg.add("XLSX")
 Pkg.add("DataFrames")
 Pkg.add("Dates")
 Pkg.add("Plots")
-# Pkg.add("StatsPlots")
 using CSV
-# using XLSX
 using DataFrames
 using Dates
 using Plots
-# using PyCall
-# using StatsPlots
-# np = pyimport("numpy")
-# dt = pyimport("datetime")
 
 # path = joinpath(pwd(), "SWaT_Dataset_Attack_v0_CSV.csv")
 # df = CSV.File(path) |> DataFrame
@@ -28,11 +20,16 @@ using Plots
 # namess = union(filter(s->occursin(r"P1", s), column_names), filter(s->occursin(r"101", s), column_names)) 
 
 df_file_loc = "SWaT_Dataset_Attack_v0_CSV.csv"
-
 df = CSV.File(df_file_loc) |> DataFrame
 
 rename!(df,:" Timestamp" => :"Timestamp")
 dates = df[!, :Timestamp]
+
+date_format = DateFormat(" d/m/y H:M:S p") 
+datesToDisplay = Dates.DateTime.(dates,date_format)
+datesToDisplay = Dates.Date.(datesToDisplay)
+unique!(datesToDisplay)
+Dates.Second(datesToDisplay[end] - datesToDisplay[1])
 
 p5 = r"50"
 p6 = r"60"
@@ -41,42 +38,31 @@ select!(df, Regex(join([p5.pattern,p6.pattern, p7.pattern], "|")))
 df_total_rows = nrow(df)
 column_names = names(df)
 
+dfMatrix = Matrix(df)
+colsToPlot = mapslices(x->[x], dfMatrix, dims=1)[2:end]
+
 fig_y = 17 *5 * ncol(df)
 fig_x = 17 * 160
-plot(layout = (17), size = (fig_x, fig_y))
-# date_format = DateFormat(" d/m/y H:M:S p") 
-# datesToDisplay = Dates.DateTime.(dates,date_format)
-# datesToDisplay = Dates.Date.(datesToDisplay)
-# unique!(datesToDisplay)
-
-for (index, col) in enumerate(eachcol(df))
-    if index == 1
-        continue
-    end
-    display(plot!(subplot = index-1,
-    dates,
-    col
-    ))
-end
+plot(dates, colsToPlot, layout = 17, size = (fig_x, fig_y), xticks = (0:86400:432000, string.(datesToDisplay)))
 
 # Dataset Start Time and End Time
 df_time_start = convert(String, df[1, :]["Timestamp"])
 df_time_end = convert(String, df[df_total_rows, :]["Timestamp"])
 
 file_loc = "List_of_attacks_Final.csv"
-df = CSV.File(file_loc) |> DataFrame
+
 mutable struct Anomaly
     index::Int
     timeStart::DateTime
     timeEnd::DateTime
-    attackPoints::Dict{Any, Any}
-    attackStages::Dict{Any, Any}
+    attackPoints::Vector{Any}
+    attackStages::Vector{Any}
 end
 
 #load anomalies from List of attacks
 #returns list of stages/processes and list of anomalies
 function anomalies(file_loc)
-    stages = Dict{String, Dict}()
+    stages = Dict{String, Vector}()
     anomalies = Anomaly[]
     times = []
 
@@ -110,25 +96,27 @@ function anomalies(file_loc)
             dateTime_end = Dates.DateTime(dateTime_end, date_format2)
 
             # extract attack points
-            attack_points = Dict()
-            attack_stages = Dict()
+            attack_points = []
+            attack_stages = []
             for i in tmp
                 i = strip(i, [' '])
                 i = uppercase(i)
                 i = replace(i, "-" => "")
-                # println(i)
-                attack_points[i] = ""
+                push!(attack_points, i)
+
                 stage = get_stage(i)
-                attack_stages[stage] = ""
-                # println(stage)
+                push!(attack_stages, stage)
+
                 if !(stage in keys(stages))
-                    stages[stage] = Dict{String, String}()
+                    stages[stage] = []
                 end
-                stages[stage][i] = ""
+                if !(i in stages[stage])
+                    push!(stages[stage], i)
+                end
             end
 
-            sort!(collect(keys(attack_points)))
-            sort!(collect(keys(attack_stages)))
+            sort!(attack_stages)
+            sort!(attack_points)
             
             println("$attack_points, $attack_stages, $dateTime_start, $dateTime_end")
 
@@ -151,10 +139,7 @@ function anomalies(file_loc)
     #         print("Index: %d" %(index))
     #    end
     end
-    # sort fields
-    # for key in keys(stages)
-    #     stages[key] = collect(keys(stages[key]))
-    # end
+
     sort!(times)
     time_start = times[1]
     time_end = times[end]
@@ -169,11 +154,27 @@ stages1, anomalies1 = anomalies(file_loc)
 stages1
 anomalies1
 
-# anomaly = anomalies1[4]
-# anomaly_idx = range(start = Dates.value(anomaly.timeStart), length = Dates.value(anomaly.timeEnd) - Dates.value(anomaly.timeStart))
-# plot!(subplot = 8, anomaly_idx, color="darkred", linewidth=6, alpha=0.8)
-
-#anomaly_idx = anomaly["time_start"] + np.arange(0, int((anomaly["time_end"] - anomaly["time_start"])/time_delta), 1)
-# plot!(anomaly_idx, loc, color=color_anomaly, linewidth=6, alpha=0.8)
-
-# time_delta = Dates.Second(1)
+#filter anomalies
+filtered_anomalies = []
+  
+for anomaly in anomalies1
+    for point in anomaly.attackPoints
+        if occursin("50", point) || occursin("60", point)
+            push!(filtered_anomalies, anomaly)
+        end
+    end
+end
+unique!(filtered_anomalies)
+#then plot
+# idx = nothing
+# xAxis = 0
+# yAxis
+# for anomaly in filtered_anomalies
+#     for point in anomaly.attackPoints
+#         idx = findfirst(x -> x==point, column_names)
+#         xAxis = Dates.Second(anomaly.timeStart):Dates.Second(1):Dates.Second(anomaly.timeEnd - anomaly.timeStart)
+#         if idx !== nothing
+#             display(plot!(subplot = idx, xAxis, xAxis, color = "darkred"))
+#         end
+#     end
+# end
