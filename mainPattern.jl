@@ -19,7 +19,7 @@ display(stages)
 display(anomalies)
 
 networkFile = processData(csvFiles, anomalies)
-
+schema(networkFile)
 
 
 

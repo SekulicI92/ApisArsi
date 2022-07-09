@@ -22,6 +22,9 @@ end
 
 function processData(csvFiles, anomalies)
 
+    for file in csvFiles:
+        
+
     networkFile = CSV.File(csvFiles[1]) |> DataFrame
     
     
