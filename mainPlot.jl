@@ -45,6 +45,7 @@ fig_y = 17 *5 * ncol(df)
 fig_x = 17 * 160
 plot(dates, colsToPlot, layout = 17, size = (fig_x, fig_y), xticks = (0:86400:432000, string.(datesToDisplay)))
 
+
 # Dataset Start Time and End Time
 df_time_start = convert(String, df[1, :]["Timestamp"])
 df_time_end = convert(String, df[df_total_rows, :]["Timestamp"])
