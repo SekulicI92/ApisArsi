@@ -21,22 +21,22 @@ Attack #,Start Time,End Time,Attack Point,Start State,Attack,Actual Change,Expec
 20,29/12/2015 18:15:43,18:22:17,AIT-504,Value of AIT-504 <15 uS/cm,Set value of AIT-504 to 255 uS/cm,No,RO shut down sequence starts after 30 minutes. Water should go to drain.,RO did not shutdown; Water did not go to drain
 21,29/12/2015 18:30:00,18:42:00,"MV-101, LIT-101",MV-101 is open; LIT-101 between L and H,Keep MV-101 on countinuosly; Value of LIT-101 set as 700 mm,Yes,Tank overflow,
 22,29/12/2015 22:55:18,23:03:00,"UV-401, AIT-502, P-501",UV-01 is on; AIT-502 is <150; P-501 is open,Stop UV-401; Value of AIT502 set as 150; Force P-501 to remain on,Yes,Possible damage to RO,P501 could not be kept on; Reduced output at FIT-502
-23,30/12/2015 01:42:34,01:54:10,"P-602, DIT-301, MV-302",DPIT-301 is <0.4 bar; MV-302 is on; P-602 is closed,Value of DPIT-301 set to >0.4 bar; Keep MV-302 open; Keep P-602 closed ,Yes,System freeze,
-24,30/12/2015 09:51:08,09:56:28,"P-203, P-205",P-203 is on; P-205 is on,Turn of P-203 and P-205,Yes,Change in water quality,Not much impact made due to closure of P-101 because tank T-101 became full
+23,30/12/2015 01:42:34,1:54:10,"P-602, DIT-301, MV-302",DPIT-301 is <0.4 bar; MV-302 is on; P-602 is closed,Value of DPIT-301 set to >0.4 bar; Keep MV-302 open; Keep P-602 closed ,Yes,System freeze,
+24,30/12/2015 09:51:08,9:56:28,"P-203, P-205",P-203 is on; P-205 is on,Turn of P-203 and P-205,Yes,Change in water quality,Not much impact made due to closure of P-101 because tank T-101 became full
 25,30/12/2015 10:01:50,10:12:01,"LIT-401, P-401",Value of LIT-401 <1000; P-402 is on,Set value of LIT-401 as 1000; P402 is kept on,Yes,Tank underflow,
 26,30/12/2015 17:04:56,17:29:00,"P-101, LIT-301",P-101 is off; P-102 is on; LIT-301 is between L and H,P-101 is turned on continuosly; Set value of LIT-301 as 801 mm,Yes,Tank 101 underflow; Tank 301 overflow,
-27,31/12/2015 01:17:08,01:45:18,"P-302, LIT-401","P302 is on, LIT401 Is  between L and H",Keep P-302 on contineoulsy; Value of  LIT401 set as 600 mm till 1:26:01,Yes,Tank overflow,
+27,31/12/2015 01:17:08,1:45:18,"P-302, LIT-401","P302 is on, LIT401 Is  between L and H",Keep P-302 on contineoulsy; Value of  LIT401 set as 600 mm till 1:26:01,Yes,Tank overflow,
 28,31/12/2015 01:45:19,11:15:27,P-302,P302 is on,Close P-302,Yes,Stop inflow of tank T-401,
 29,31/12/2015 15:32:00,15:34:00,"P-201, P-203, P-205",P-201 is closed; P-203 is closed; P-205 is closed,Turn on P-201; Turn on P-203; Turn on P-205,Yes,Wastage of chemicals,The three dosing pump did not start because of some mechanical interlock
 30,31/12/2015 15:47:40,16:07:10,"LIT-101, P-101, MV-201",P-101 is off; MV-101 is off; MV-201 is off; LIT-101 is between L and H;  LIT-301 is between L and H,Turn P-101 on continuously; Turn MV-101 on continuously; Set value of LIT-101 as 700 mm; P-102 started itself because LIT301 level became low,Yes,Tank 101 underflow; Tank 301 overflow,
 31,31/12/2015 22:05:34,22:11:40,LIT-401,Water level between L and H,Set LIT-401 to less than L,No,Tank overflow,
-32,1/01/2016 10:36:00,10:46:00,LIT-301,Water level between L and H,Set LIT-301 to above HH,No,Tank underflow; Damage P-302,
-33,1/01/2016 14:21:12,14:28:35,LIT-101,Water level between L and H,Set LIT-101 to above H,No,Tank underflow; Damage P-101,
-34,1/01/2016 17:12:40,17:14:20,P-101,P-101 is on,Turn P-101 off,Yes,Stops outflow,Outflow did not stop because the system turned on P-102
-35,1/01/2016 17:18:56,17:26:56,P-101; P-102,P-101 is on; P-102 is off,Turn P-101 off; Keep P-102 off,Yes,Stops outflow,
-36,1/01/2016 22:16:01,22:25:00,LIT-101,Water level between L and H,Set LIT-101 to less than LL,No,Tank overflow,
-37,2/01/2016 11:17:02,11:24:50,"P-501, FIT-502",P-501 is on; FIT-502 in normal range,Close P-501; Set value of FIT-502 to 1.29  at 11:18:36,No,Reduced output,P-501 did not turn off; FIT-502 decreased to 0.8; Speed of P-501 increased to 28.50 Hz from 10 Hz during attack.
-38,2/01/2016 11:31:38,11:36:18,"AIT-402, AIT-502",In Normal Range,Set value of AIT402 as 260; Set value of AIT502 to 260,No,Water goes to drain because of overdosing,Water did not go to the drain
-39,2/01/2016 11:43:48,11:50:28,"FIT-401, AIT-502",In Normal Range,Set value of FIT-401 as 0.5; Set value of AIT-502 as 140 mV,No,UV will shut down and water will go to RO,UV did not shutdown
-40,2/01/2016 11:51:42,11:56:38,FIT-401,In Normal Range,Set value of FIT-401 as 0,No,UV will shut down and water will go to RO,"P-402 did not close, both should be interlinked"
-41,2/01/2016 13:13:02,13:40:56,LIT-301,Water level between L and H,decrease value by 0.5 mm per second,No,Tank overflow,Rate of decrease in water level reduced after 1:33:25 PM
+32,1/1/2016 10:36,10:46:00,LIT-301,Water level between L and H,Set LIT-301 to above HH,No,Tank underflow; Damage P-302,
+33,1/1/2016 14:21,14:28:35,LIT-101,Water level between L and H,Set LIT-101 to above H,No,Tank underflow; Damage P-101,
+34,1/1/2016 17:12,17:14:20,P-101,P-101 is on,Turn P-101 off,Yes,Stops outflow,Outflow did not stop because the system turned on P-102
+35,1/1/2016 17:18,17:26:56,P-101; P-102,P-101 is on; P-102 is off,Turn P-101 off; Keep P-102 off,Yes,Stops outflow,
+36,1/1/2016 22:16,22:25:00,LIT-101,Water level between L and H,Set LIT-101 to less than LL,No,Tank overflow,
+37,2/1/2016 11:17,11:24:50,"P-501, FIT-502",P-501 is on; FIT-502 in normal range,Close P-501; Set value of FIT-502 to 1.29  at 11:18:36,No,Reduced output,P-501 did not turn off; FIT-502 decreased to 0.8; Speed of P-501 increased to 28.50 Hz from 10 Hz during attack.
+38,2/1/2016 11:31,11:36:18,"AIT-402, AIT-502",In Normal Range,Set value of AIT402 as 260; Set value of AIT502 to 260,No,Water goes to drain because of overdosing,Water did not go to the drain
+39,2/1/2016 11:43,11:50:28,"FIT-401, AIT-502",In Normal Range,Set value of FIT-401 as 0.5; Set value of AIT-502 as 140 mV,No,UV will shut down and water will go to RO,UV did not shutdown
+40,2/1/2016 11:51,11:56:38,FIT-401,In Normal Range,Set value of FIT-401 as 0,No,UV will shut down and water will go to RO,"P-402 did not close, both should be interlinked"
+41,2/1/2016 13:13,13:40:56,LIT-301,Water level between L and H,decrease value by 0.5 mm per second,No,Tank overflow,Rate of decrease in water level reduced after 1:33:25 PM
