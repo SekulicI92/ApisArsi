@@ -120,7 +120,7 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
 
         df = CSV.File(file) |> DataFrame
 
-        if count(headers) == 0
+        if length(headers) == 0
             headers = names(df)
         end
 
@@ -136,17 +136,17 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
 
        
         processFile!(df, skipFirst, anomalies)
-        break
+        # break
        total_processed += 1
         
     end
  
     ## statistika - table1 je broj i lista attack point-a i attack stage-ova
-    totalStats.attackPoints = length(anomalies_unique)
-    totalStats.attackStages = length(stages_unique)
+    totalStats.attackPoints = length(unique!(anomalies_unique))
+    totalStats.attackStages = length(unique!(stages_unique))
 
-    attack_points = join(anomalies_unique, ", ")
-    attack_stages = join(stages_unique, ", ")
+    attack_points = join(unique!(anomalies_unique), ", ")
+    attack_stages = join(unique!(stages_unique), ", ")
 
     table1 = [
         [ "# rows",  "# Attack points", "Attack points", "# Attacked stages", "Attacked stages" ],
@@ -310,13 +310,34 @@ function processFile!(df, precission, anomalies)
             continue
         end
 
-        date = row["date"]
-        
-        display(date)
-        day = parse(Int32, SubString(date, 1, 2))
-        month = SubString(date, 3, 5)
-        year = parse(Int32,SubString(date, 6, 9))
+        date = string(row["date"])
 
+        day = ""
+        month = ""
+        year = ""
+
+        # display(date)
+        if contains(date, "-")
+            day = tryparse(Int32, SubString(date, 1, 2))
+            if day === nothing
+                day = parse(Int32, date[1])
+                month = SubString(date, 3, 5)
+                year = parse(Int32, SubString(date, 7, 8)) + 2000
+            else  
+                month = SubString(date, 4, 6)
+                year = parse(Int32,SubString(date, 8, 9)) + 2000
+            end
+        else
+            day = tryparse(Int32, SubString(date, 1, 2))
+            if day === nothing
+                day = parse(Int32, date[1])
+                month = SubString(date, 2, 4)
+                year = parse(Int32, SubString(date, 5, 8))
+            else
+                month = SubString(date, 3, 5)
+                year = parse(Int32,SubString(date, 6, 9))
+            end
+        end
         if ( month == "Dec") 
                 month = 12
         elseif (month == "Nov")
@@ -342,33 +363,30 @@ function processFile!(df, precission, anomalies)
         end
 
         date = Dates.Date(year, month, day)
-        time = row["time"]    
+        time = Dates.Time(string(row["time"]), "HH:MM:SS")
         date_time = Dates.DateTime(date, time)
-
         anomaliesByTimestamp = getAnomaliesByTimestamp!(date_time, anomalies)
 
-        # zasto???
-
         for anomaly in anomaliesByTimestamp
-            for attack_point in anomaly["attack_points"]
-                anomalies_unique[attack_point] = ""
+            for attack_point in anomaly.attackPoints
+                push!(anomalies_unique, attack_point)
             end 
 
-            for attack_stage in anomaly["attack_stages"]
-                stages_unique[attack_stage] = ""
+            for attack_stage in anomaly.attackStages
+                push!(stages_unique, attack_stage)
             end
         end
 
-        modbusFunctionDescription = contains(row["Modbus_Function_Description"], "Response")
-        
-        if(!modbusFunctionDescription)
+        modbusFunctionDescription = contains(string(row["Modbus_Function_Description"]), "Response")
+
+        if !modbusFunctionDescription
             continue
         end
 
         totalStats.rows += 1
 
-        value = 0
-        modbusValue = split(row["Modbus_Value"], ";")
+        value = 0     
+        modbusValue = split(string(row["Modbus_Value"]), ";")
 
         modbusValue = modbusValue[1]
         modbusValue = replace(modbusValue, "0x" => "")
@@ -379,10 +397,10 @@ function processFile!(df, precission, anomalies)
             continue
         end
 
-        #onaj unhexify
-        display(fixedMbValue)
+        ## unhexify
+        # display(fixedMbValue)
         value = tryparse(Float64, fixedMbValue)
-        display(value)
+        # display(value)
 
 
         ongoingAttack = false
@@ -390,56 +408,56 @@ function processFile!(df, precission, anomalies)
             ongoingAttack = true
         end
 
-        destination = row["SCADA_Tag"]
+        destination = string(row["SCADA_Tag"])
         destination = replace(destination, "HMI_" => "")
 
         moving_window!(destination, value)
 
         for anomaly in anomaliesByTimestamp
-            index = anomaly["index"]
+            index = anomaly.index
 
         # treba izvuci attackType 2 je hardcodovan attack type trenutno 
 
-        try 
-            detection = detections[index]
-        catch e
-            detections[index] = Detection{
-                false,
-                false,
-                false,
-                "2" ,
-                0,
-                0,
-                0,
-            }
-        end
+            try 
+                detection = detections[index]
+            catch e
+                detection = Detection(
+                    false,
+                    false,
+                    false,
+                    "2" ,
+                    0,
+                    0,
+                    0,
+                )
+                push!(detections, detection)
+            end
 
 
-        isOk = false
-        
-        for attackPoint in anomalies_unique["attack_points"]
-            if attackPoint == destination
-                isOk = true    
+            isOk = false
+            
+            for attackPoint in anomalies_unique
+                if attackPoint == destination
+                    isOk = true    
+                end
+            end
+            
+            if isOk == false
+                continue
+            end
+
+            isAttackDetected = detectAttack(destination)
+
+            if ongoingAttack == true
+                if isAttackDetected == true
+                    detections[index].detectedNetworkReq += 1
+                else
+                    detection[index].missedNetworkReq += 1
+                end
             end
         end
-        
-        if isOk == false
-            continue
-        end
-
-        isAttackDetected = detectAttack(destination)
-
-        if ongoingAttack == true
-            if isAttackDetected == true
-                detections[index]["detectedNetworkReq"] += 1
-            else
-                detection[index]["missedNetworkReq"] += 1
-            end
-        end
-
-
-        # drug put poziva detekciju? za False positive?
-        end
+    
+        # drugi put poziva detekciju? za False positive?
 
         if length(anomalies_unique) == 0
             isAttackDetected = detect_attack!(destination)
@@ -448,7 +466,7 @@ function processFile!(df, precission, anomalies)
             end
         end
 
-        #zasto nulta pozicija?
+        ## zasto nulta pozicija?
 
         if (length(detections) == 0)
             dt = Detection(
@@ -466,8 +484,8 @@ function processFile!(df, precission, anomalies)
 
         detections[1].falsePositiveNetworkReq += 1
 
-        #da se prekine for petlja
-        break;
+        ## da se prekine for petlja
+        # break
     end
 end
 
@@ -516,7 +534,7 @@ end
 minAlerts = window_size/100*10 
 maxAlerts = window_size/100*25 
 if length(alerts) > minAlerts && length(alerts) < maxAlerts
-    println("alerts = $(length(alerts)) windows size =  $window_size stdev = $stdev avg = $average")
+    # println("alerts = $(length(alerts)) windows size =  $window_size stdev = $stdev avg = $average")
     return true
 end
 
@@ -532,7 +550,7 @@ function moving_window!(name, value)
     # if ( tmp == -1) 
     #     windows[name] = []
     # end
-    display(windows)
+    # display(windows)
 
     if name in keys(windows)
     
@@ -540,7 +558,7 @@ function moving_window!(name, value)
 
         temp = Dict{String, Vector{Int}}(name => [])
         merge!(windows, temp)
-        display(windows)
+        # display(windows)
     end
 
     if length(windows[name]) > window_size

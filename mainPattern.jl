@@ -26,5 +26,3 @@ skipFirst = 415
 maxProcess = -1
 window_size = 100
 networkFile = processAll(csvFiles, loadedAnomalies, skipFirst, maxProcess, window_size)
-
-#schema(networkFile)
