@@ -1,5 +1,6 @@
 include("filter.jl")
 
+
 using Pkg
 Pkg.add("CSV")
 Pkg.add("DataFrames")
@@ -105,9 +106,23 @@ function getAnomalies(file_loc)
     print("First anomaly detected $time_start")
     
     # df.reset_index()
-    return [ stages, anomalies ]
+   
+
+#filter anomalies
+filtered_anomalies = []
+  
+for anomaly in anomalies
+    for point in anomaly.attackPoints
+        if occursin("50", point) || occursin("60", point)
+            push!(filtered_anomalies, anomaly)
+        end
+    end
 end
 
+return [ stages
+, unique!(filtered_anomalies) ]
+
+end
 function loadNetworkData(path)
     """
     load list of files

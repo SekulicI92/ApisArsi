@@ -1,9 +1,16 @@
 import Pkg
 
+
 Pkg.add("DataFrames")
 Pkg.add("CSV")
+Pkg.add("BitIntegers")
+Pkg.add("Statistics")
+
 using DataFrames
 using CSV
+using BitIntegers
+using Statistics
+
 
 mutable struct Stats
     index::Int
@@ -55,9 +62,16 @@ totalStats = TotalStats(0, 0, 0, 0, 0)
 
 anomalies_unique = []
 stages_unique = []
+windows = Dict{String, Vector{Int}}()
+precission = 1
+detections = Vector{Detection}()
+window_size = 100
 
-function processAll(csvFiles, anomalies, skipFirst, maxProcess)
+function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
     pattern.files = csvFiles
+    headers = []
+    threads = []
+    window_size = window_size
 
     for anomaly in anomalies
         ## time_start and time_end are of DateTime type and in format: "d/m/y H:M:S"
@@ -86,9 +100,12 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess)
         maxProcess = length(pattern.files) - skipFirst
     end
 
+    i = 0
+
     # iterate file by file
     for file in pattern.files
         iterator += 1
+        i += 1
         if skipFirst > -1 && iterator < skipFirst
             continue
         end
@@ -99,23 +116,31 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess)
 
         println("$(total_processed+1) / $maxProcess | $iterator / $(length(pattern.files)) processing file $file")
 
-        ## tebi sam ostavila threadove :)
+        ## tebi sam ostavila threadove :) <= threadovi ispod
 
-        # self.ref_tc.wait_threads()
-        # self.ref_tc.inc_threads()
+        df = CSV.File(file) |> DataFrame
 
-        # if self.header == None:
-        #     df = pd.read_csv(file)
-        #     self.header = df.columns.tolist()
+        if count(headers) == 0
+            headers = names(df)
+        end
 
-        # thread.start_new_thread(self.process, (file,))
-        total_processed += 1
+        display(headers)
+
+        #tredovi cekaju!!!!
+
+        # Threads.wait()
+
+        # t = Base.Threads.@spawn processFile!(df)
+        
+        # push!(threads, t)
+
+       
+        processFile!(df, skipFirst, anomalies)
+        break
+       total_processed += 1
+        
     end
-
-    # while self.ref_tc.get_total_threads() > 0 and self.ref_tc.can_work():
-    #     time.sleep(0.3)
-
-
+ 
     ## statistika - table1 je broj i lista attack point-a i attack stage-ova
     totalStats.attackPoints = length(anomalies_unique)
     totalStats.attackStages = length(stages_unique)
@@ -273,5 +298,269 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess)
     # return networkFile
 end
 
+function processFile!(df, precission, anomalies)
+    
+    it = 0
+
+    for (index, row) in enumerate(eachrow(df))
+        
+        it += 1
+
+        if it % precission != 0
+            continue
+        end
+
+        date = row["date"]
+        
+        display(date)
+        day = parse(Int32, SubString(date, 1, 2))
+        month = SubString(date, 3, 5)
+        year = parse(Int32,SubString(date, 6, 9))
+
+        if ( month == "Dec") 
+                month = 12
+        elseif (month == "Nov")
+                month = 11
+        elseif (month == "Sep")
+                month = 9
+        elseif (month == "Aug")
+                month = 8
+        elseif (month == "Jul")
+                month = 7
+        elseif (month == "Jun")
+                month = 6
+        elseif (month == "May")
+                month = 5
+        elseif (month == "Apr")
+                month = 4
+        elseif (month == "Mar")
+                month = 3
+        elseif (month == "Feb")
+                month = 2
+        elseif (month == "Jan")
+                month = 1       
+        end
+
+        date = Dates.Date(year, month, day)
+        time = row["time"]    
+        date_time = Dates.DateTime(date, time)
+
+        anomaliesByTimestamp = getAnomaliesByTimestamp!(date_time, anomalies)
+
+        # zasto???
+
+        for anomaly in anomaliesByTimestamp
+            for attack_point in anomaly["attack_points"]
+                anomalies_unique[attack_point] = ""
+            end 
+
+            for attack_stage in anomaly["attack_stages"]
+                stages_unique[attack_stage] = ""
+            end
+        end
+
+        modbusFunctionDescription = contains(row["Modbus_Function_Description"], "Response")
+        
+        if(!modbusFunctionDescription)
+            continue
+        end
+
+        totalStats.rows += 1
+
+        value = 0
+        modbusValue = split(row["Modbus_Value"], ";")
+
+        modbusValue = modbusValue[1]
+        modbusValue = replace(modbusValue, "0x" => "")
+        modbusValue = replace(modbusValue, " " => "")
+        fixedMbValue = "0x" * modbusValue
+
+        if length(modbusValue) != 8
+            continue
+        end
+
+        #onaj unhexify
+        display(fixedMbValue)
+        value = tryparse(Float64, fixedMbValue)
+        display(value)
 
 
+        ongoingAttack = false
+        if(length(anomalies) > 0)
+            ongoingAttack = true
+        end
+
+        destination = row["SCADA_Tag"]
+        destination = replace(destination, "HMI_" => "")
+
+        moving_window!(destination, value)
+
+        for anomaly in anomaliesByTimestamp
+            index = anomaly["index"]
+
+        # treba izvuci attackType 2 je hardcodovan attack type trenutno 
+
+        try 
+            detection = detections[index]
+        catch e
+            detections[index] = Detection{
+                false,
+                false,
+                false,
+                "2" ,
+                0,
+                0,
+                0,
+            }
+        end
+
+
+        isOk = false
+        
+        for attackPoint in anomalies_unique["attack_points"]
+            if attackPoint == destination
+                isOk = true    
+            end
+        end
+        
+        if isOk == false
+            continue
+        end
+
+        isAttackDetected = detectAttack(destination)
+
+        if ongoingAttack == true
+            if isAttackDetected == true
+                detections[index]["detectedNetworkReq"] += 1
+            else
+                detection[index]["missedNetworkReq"] += 1
+            end
+        end
+
+
+        # drug put poziva detekciju? za False positive?
+        end
+
+        if length(anomalies_unique) == 0
+            isAttackDetected = detect_attack!(destination)
+            if isAttackDetected == false
+                continue
+            end
+        end
+
+        #zasto nulta pozicija?
+
+        if (length(detections) == 0)
+            dt = Detection(
+                false,
+                false,
+                false,
+                "2" ,
+                0,
+                0,
+                0,
+            )
+
+            push!(detections, dt)
+        end
+
+        detections[1].falsePositiveNetworkReq += 1
+
+        #da se prekine for petlja
+        break;
+    end
+end
+
+function from_hex(h, n)
+    b = hex2bytes(h)
+    for x in b
+        n <<= 8
+        n |= x
+    end
+    return n
+end
+
+
+function detect_attack!(name)
+
+if length(windows[name]) < window_size
+    return false
+end
+
+stdev = mean(windows[name])
+average = median(windows[name])
+
+min_border = average - stdev
+max_border = average + stdev
+
+alerts = []
+
+for idx in range(1, length(windows[name])-1)
+    value = windows[name][idx]
+
+    isForAlert = false
+    if value < min_border
+        isForAlert = true
+    end
+
+    if value > max_border
+        isForAlert = true
+    end
+
+    if isForAlert
+        push!(alerts, idx)
+    end       
+end
+
+# minimum 10% of window size must be detection rate
+minAlerts = window_size/100*10 
+maxAlerts = window_size/100*25 
+if length(alerts) > minAlerts && length(alerts) < maxAlerts
+    println("alerts = $(length(alerts)) windows size =  $window_size stdev = $stdev avg = $average")
+    return true
+end
+
+return false
+end
+
+
+function moving_window!(name, value)
+    
+    # tmp = -1
+    # tmp = windows[name]
+
+    # if ( tmp == -1) 
+    #     windows[name] = []
+    # end
+    display(windows)
+
+    if name in keys(windows)
+    
+    else
+
+        temp = Dict{String, Vector{Int}}(name => [])
+        merge!(windows, temp)
+        display(windows)
+    end
+
+    if length(windows[name]) > window_size
+        windows[name] = windows[name][1:end]
+    end
+
+    push!(windows[name],value)
+
+end
+
+
+function getAnomaliesByTimestamp!(date_time, anomalies)
+        
+        res = []
+
+        for anomaly in anomalies
+            if (date_time >= anomaly.timeStart && date_time <= anomaly.timeEnd ) 
+                push!(res,anomaly)
+            end
+        end
+
+    return res
+end

@@ -1,6 +1,7 @@
 include("dateTimeFormatter.jl")
 include("filter.jl")
 
+
 using Pkg
 Pkg.add("CSV")
 Pkg.add("DataFrames")
@@ -46,12 +47,6 @@ fig_x = 17 * 160
 plot(dates, colsToPlot, layout = 17, size = (fig_x, fig_y), xticks = (0:86400:432000, string.(datesToDisplay)))
 
 
-# Dataset Start Time and End Time
-df_time_start = convert(String, df[1, :]["Timestamp"])
-df_time_end = convert(String, df[df_total_rows, :]["Timestamp"])
-
-file_loc = "List_of_attacks_Final.csv"
-
 mutable struct Anomaly
     index::Int
     timeStart::DateTime
@@ -59,6 +54,12 @@ mutable struct Anomaly
     attackPoints::Vector{Any}
     attackStages::Vector{Any}
 end
+
+# Dataset Start Time and End Time
+df_time_start = convert(String, df[1, :]["Timestamp"])
+df_time_end = convert(String, df[df_total_rows, :]["Timestamp"])
+
+file_loc = "List_of_attacks_Final.csv"
 
 #load anomalies from List of attacks
 #returns list of stages/processes and list of anomalies
@@ -93,8 +94,7 @@ function anomalies(file_loc)
             # extract attack end time
             time_end = row["End Time"]
             dateTime_end = string(date_start, ' ', time_end)
-            date_format2 = DateFormat("y-m-d H:M:S") 
-            dateTime_end = Dates.DateTime(dateTime_end, date_format2)
+        
 
             # extract attack points
             attack_points = []
@@ -150,6 +150,7 @@ function anomalies(file_loc)
     # df.reset_index()
     return [ stages, anomalies ]
 end
+
 
 stages1, anomalies1 = anomalies(file_loc)
 stages1
