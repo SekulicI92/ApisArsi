@@ -12,17 +12,19 @@ display(csvFiles)
 display(table)
 
 
-stages, anomalies = getAnomalies(attackListLocation)
+stages, loadedAnomalies = getAnomalies(attackListLocation)
 
 display(stages)
-display(anomalies)
+display(loadedAnomalies)
 
 ## skipFirst bi trebalo da je 415 recimo, ja sam ostavila 0 jer nemam memorije na kompu, 
 ## pa imam tipa oko 100 fajlova samo umesto 700 i nesto
 ## pa da mi ne skipuje nista
 ## inace skipuje sve logove do trenutka kad su poceli napadi
-skipFirst = 0
+skipFirst = 415
 ## ovo se setuje unutar metode na broj fajlova - skipFirst
 maxProcess = -1
-networkFile = processAll(csvFiles, anomalies, skipFirst, maxProcess)
-schema(networkFile)
+window_size = 100
+networkFile = processAll(csvFiles, loadedAnomalies, skipFirst, maxProcess, window_size)
+
+#schema(networkFile)
