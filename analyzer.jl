@@ -63,9 +63,10 @@ totalStats = TotalStats(0, 0, 0, 0, 0)
 anomalies_unique = []
 stages_unique = []
 windows = Dict{String, Vector{Int}}()
-precission = 1
+precission = 100
 detections = Vector{Detection}()
 window_size = 100
+maxThreads = 12
 
 function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
     pattern.files = csvFiles
@@ -101,6 +102,7 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
     end
 
     i = 0
+    activeThreads = 0
 
     # iterate file by file
     for file in pattern.files
@@ -116,31 +118,45 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
 
         println("$(total_processed+1) / $maxProcess | $iterator / $(length(pattern.files)) processing file $file")
 
-        ## tebi sam ostavila threadove :) <= threadovi ispod
-
-        df = CSV.File(file) |> DataFrame
-
         if length(headers) == 0
+            df = CSV.File(file) |> DataFrame
             headers = names(df)
         end
 
-        display(headers)
-
-        #tredovi cekaju!!!!
-
-        # Threads.wait()
-
-        # t = Base.Threads.@spawn processFile!(df)
-        
-        # push!(threads, t)
-
        
-        processFile!(df, skipFirst, anomalies)
-        # break
-       total_processed += 1
+        while (activeThreads >= maxThreads)
+            i = 0
+            for t in threads
+                i += 1
+                if (istaskdone(t))
+                    deleteat!(threads, i)
+                    activeThreads -= 1
+                end
+            end
+        end
+
+        sleep(0.3)
         
+        t = Base.Threads.@spawn processFile!(file, skipFirst, anomalies)
+        activeThreads += 1
+        push!(threads, t)
+        total_processed += 1
     end
- 
+
+    while (length(threads) > 0)
+        i = 0
+        for t in threads
+            i += 1
+            if (istaskdone(t))
+                deleteat!(threads, i)
+            end
+        end
+        display(length(threads))
+    end
+
+    
+
+
     ## statistika - table1 je broj i lista attack point-a i attack stage-ova
     totalStats.attackPoints = length(unique!(anomalies_unique))
     totalStats.attackStages = length(unique!(stages_unique))
@@ -299,8 +315,9 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
 end
 
 function processFile!(df, precission, anomalies)
-    
+
     it = 0
+    df = CSV.File(file) |> DataFrame
 
     for (index, row) in enumerate(eachrow(df))
         
@@ -483,10 +500,9 @@ function processFile!(df, precission, anomalies)
         end
 
         detections[1].falsePositiveNetworkReq += 1
-
-        ## da se prekine for petlja
-        # break
     end
+
+    return true
 end
 
 function from_hex(h, n)
