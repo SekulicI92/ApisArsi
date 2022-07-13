@@ -1,6 +1,5 @@
 import Pkg
 
-
 Pkg.add("DataFrames")
 Pkg.add("CSV")
 Pkg.add("BitIntegers")
@@ -29,15 +28,15 @@ mutable struct Detection
     falsePositiveNetworkReq::Int
 end
 
-mutable struct Pattern
+mutable struct PatternStruct
     files:: Vector{Any}
     stats::Dict{String, Stats}
     windows::Dict{String, Vector{Any}}
     window_size:: Int
     precission:: Int
     detection::Dict{Int, Vector{Detection}}
-    header::Vector{Any}
-    #ref_tc::threading_control.threading_control(max_work=3600*12, max_threads=20)
+    headers::Vector{Any}
+    alerts::Vector{Any}
 end
 
 mutable struct TotalStats
@@ -48,16 +47,6 @@ mutable struct TotalStats
     attackStages::Int
 end
 
-pattern = Pattern(
-    [],
-    Dict{String, Vector{Stats}}(),
-    Dict{String, Vector{Any}}(),
-    100,
-    100,
-    Dict{Int, Vector{Detection}}(),
-    []
-)
-
 totalStats = TotalStats(0, 0, 0, 0, 0)
 
 anomalies_unique = []
@@ -67,6 +56,17 @@ precission = 100
 detections = Vector{Detection}()
 window_size = 100
 maxThreads = 12
+
+pattern = PatternStruct(
+    [],
+    Dict{String, Vector{Stats}}(),
+    Dict{String, Vector{Any}}(),
+    100,
+    100,
+    Dict{Int, Vector{Detection}}(),
+    [],
+    []
+)
 
 function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
     pattern.files = csvFiles
@@ -120,23 +120,22 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
 
         if length(headers) == 0
             df = CSV.File(file) |> DataFrame
-            headers = names(df)
+            pattern.headers = names(df)
         end
 
+        #processFile!(file, skipFirst, anomalies)
        
         while (activeThreads >= maxThreads)
             i = 0
             for t in threads
                 i += 1
-                if (istaskdone(t))
+                if (istaskdone(t))              
                     deleteat!(threads, i)
                     activeThreads -= 1
                 end
             end
         end
 
-        sleep(0.3)
-        
         t = Base.Threads.@spawn processFile!(file, skipFirst, anomalies)
         activeThreads += 1
         push!(threads, t)
@@ -151,10 +150,7 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
                 deleteat!(threads, i)
             end
         end
-        display(length(threads))
     end
-
-    
 
 
     ## statistika - table1 je broj i lista attack point-a i attack stage-ova
@@ -306,15 +302,9 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
     ]
 
     return [ table1, table2, table3, table4 ]
-
-    # networkFile = nothing
-    # for file in csvFiles
-    #     networkFile = CSV.File(file) |> DataFrame
-    # end
-    # return networkFile
 end
 
-function processFile!(df, precission, anomalies)
+function processFile!(file, precission, anomalies)
 
     it = 0
     df = CSV.File(file) |> DataFrame
@@ -384,6 +374,7 @@ function processFile!(df, precission, anomalies)
         date_time = Dates.DateTime(date, time)
         anomaliesByTimestamp = getAnomaliesByTimestamp!(date_time, anomalies)
 
+    
         for anomaly in anomaliesByTimestamp
             for attack_point in anomaly.attackPoints
                 push!(anomalies_unique, attack_point)
@@ -436,7 +427,7 @@ function processFile!(df, precission, anomalies)
         # treba izvuci attackType 2 je hardcodovan attack type trenutno 
 
             try 
-                detection = detections[index]
+                detection = pattern.detection[index]
             catch e
                 detection = Detection(
                     false,
@@ -447,7 +438,7 @@ function processFile!(df, precission, anomalies)
                     0,
                     0,
                 )
-                push!(detections, detection)
+                push!(pattern.detection, detection)
             end
 
 
@@ -467,9 +458,9 @@ function processFile!(df, precission, anomalies)
 
             if ongoingAttack == true
                 if isAttackDetected == true
-                    detections[index].detectedNetworkReq += 1
+                    pattern.detection[index].detectedNetworkReq += 1
                 else
-                    detection[index].missedNetworkReq += 1
+                    pattern.detection[index].missedNetworkReq += 1
                 end
             end
         end
@@ -485,7 +476,7 @@ function processFile!(df, precission, anomalies)
 
         ## zasto nulta pozicija?
 
-        if (length(detections) == 0)
+        if (length(pattern.detection) == 0)
             dt = Detection(
                 false,
                 false,
@@ -496,10 +487,10 @@ function processFile!(df, precission, anomalies)
                 0,
             )
 
-            push!(detections, dt)
+            push!(pattern.detections, dt)
         end
 
-        detections[1].falsePositiveNetworkReq += 1
+        pattern.detections[1].falsePositiveNetworkReq += 1
     end
 
     return true
@@ -517,20 +508,20 @@ end
 
 function detect_attack!(name)
 
-if length(windows[name]) < window_size
+if length(pattern.windows[name]) < window_size
     return false
 end
 
-stdev = mean(windows[name])
-average = median(windows[name])
+stdev = mean(pattern.windows[name])
+average = median(pattern.windows[name])
 
 min_border = average - stdev
 max_border = average + stdev
 
 alerts = []
 
-for idx in range(1, length(windows[name])-1)
-    value = windows[name][idx]
+for idx in range(1, length(pattern.windows[name])-1)
+    value = pattern.windows[name][idx]
 
     isForAlert = false
     if value < min_border
@@ -542,14 +533,14 @@ for idx in range(1, length(windows[name])-1)
     end
 
     if isForAlert
-        push!(alerts, idx)
+        push!(pattern.alerts, idx)
     end       
 end
 
 # minimum 10% of window size must be detection rate
 minAlerts = window_size/100*10 
 maxAlerts = window_size/100*25 
-if length(alerts) > minAlerts && length(alerts) < maxAlerts
+if length(pattern.alerts) > minAlerts && length(pattern.alerts) < maxAlerts
     # println("alerts = $(length(alerts)) windows size =  $window_size stdev = $stdev avg = $average")
     return true
 end
@@ -573,15 +564,15 @@ function moving_window!(name, value)
     else
 
         temp = Dict{String, Vector{Int}}(name => [])
-        merge!(windows, temp)
+        merge!(pattern.windows, temp)
         # display(windows)
     end
 
-    if length(windows[name]) > window_size
-        windows[name] = windows[name][1:end]
+    if length(pattern.windows[name]) > window_size
+        pattern.windows[name] = pattern.windows[name][1:end]
     end
 
-    push!(windows[name],value)
+    push!(pattern.windows[name],value)
 
 end
 
