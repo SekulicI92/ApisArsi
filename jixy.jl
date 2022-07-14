@@ -38,11 +38,11 @@ dfMatrix = Matrix(df)
 
 colsToPlot = mapslices(x->[x], dfMatrix, dims=1)[2:end]
 
-fig_y = 17 *5 * ncol(df)
-fig_x = 17 * 160
+fig_y = 17 *5 * ncol(df) * 5
+fig_x = 17 * 160 * 7
 
 
-t = plot(dates, colsToPlot, layout = 17, size = (fig_x, fig_y), xticks = (0:86400:432000, string.(datesToDisplay)))
+t = plot(dates, colsToPlot, layout = (17, 1), size = (fig_x, fig_y), xticks = (0:86400:432000, string.(datesToDisplay)))
 display(t)
 
 
@@ -60,24 +60,23 @@ tempDates = convertAnomalyDatesRange(anomalies1, datesForComparing)
 display(tempDates)
 
 for anomaly in anomalies1
-        for point in anomaly.attackPoints
-            idx = findfirst(x -> x==point, column_names)
-  
-            if idx !== nothing
-                idxDateStart = findfirst(x-> x == anomaly.timeStart, datesForComparing)
-                idxDateEnd = findfirst(x-> x == anomaly.timeEnd, datesForComparing)
+    for point in anomaly.attackPoints
+        idx = findfirst(x -> x==point, column_names)
 
+        if idx !== nothing
+            println(idx)
+            idxDateStart = findfirst(x-> x == anomaly.timeStart, datesForComparing)
+            idxDateEnd = findfirst(x-> x == anomaly.timeEnd, datesForComparing)
             
-                #trebalo bi izvuci vrednosti kolone koja je attack point u redovima kad se desava anomalija
-                #idxDateStart i idxDateEnd bi trebalo da vrate taj index
-                #ali iz nekog razloga nmg da skontam kako da izvucem taj niz vrednosti
-                forPlot = dfMatrix[idxDateStart:1:idxDateEnd][idx]
-              
-                #display(plot!(tempDates[anomaly.index], forPlot, color = "darkred"))
+            #trebalo bi izvuci vrednosti kolone koja je attack point u redovima kad se desava anomalija
+            #idxDateStart i idxDateEnd bi trebalo da vrate taj index
+            #ali iz nekog razloga nmg da skontam kako da izvucem taj niz vrednosti
+            forPlot = vec(dfMatrix[idxDateStart:idxDateEnd, idx])
+            display(plot!(subplot = idx, tempDates[anomaly.index], forPlot, color = "darkred"))
 
-                #i onda bi trebalo da moze plotovati
-            end
+            #i onda bi trebalo da moze plotovati
         end
     end
+end
 #t2 = plot!(tmpDates, colsToPlot, layout = 17, size = (fig_x, fig_y))
 #display(t2)
