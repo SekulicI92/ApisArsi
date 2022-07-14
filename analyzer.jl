@@ -136,6 +136,7 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
             end
         end
 
+        sleep(0.3)
         t = Base.Threads.@spawn processFile!(file, skipFirst, anomalies)
         activeThreads += 1
         push!(threads, t)

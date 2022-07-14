@@ -108,21 +108,20 @@ function getAnomalies(file_loc)
     # df.reset_index()
    
 
-#filter anomalies
-filtered_anomalies = []
+# #filter anomalies
+# filtered_anomalies = []
   
-for anomaly in anomalies
-    for point in anomaly.attackPoints
-        if occursin("50", point) || occursin("60", point)
-            push!(filtered_anomalies, anomaly)
-        end
-    end
+# for anomaly in anomalies
+#     for point in anomaly.attackPoints
+#         if occursin("50", point) || occursin("60", point)
+#             push!(filtered_anomalies, anomaly)
+#         end
+#     end
+# end
+
+return [ stages, unique!(anomalies) ]
 end
 
-return [ stages
-, unique!(filtered_anomalies) ]
-
-end
 function loadNetworkData(path)
     """
     load list of files
@@ -134,9 +133,6 @@ function loadNetworkData(path)
     total_skipped = 0
 
     files = readdir(path; join=true)
-
-
-    
 
     for file in files
         total_files += 1
@@ -161,4 +157,20 @@ function loadNetworkData(path)
     ]
 
         return  csvFiles, table
+end
+
+
+function getAnomalyDatesRange(anomalies, dates)
+
+    #tempDates = Dict{Int, Vector{DateTime}}()
+    tempDates = []
+    for a in anomalies 
+        for d in dates
+            if d >= a.timeStart && d <= a.timeEnd
+                      push!(tempDates, d)
+            end
+        end
+    end
+
+    return tempDates
 end
