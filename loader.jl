@@ -162,12 +162,39 @@ end
 
 function getAnomalyDatesRange(anomalies, dates)
 
-    #tempDates = Dict{Int, Vector{DateTime}}()
-    tempDates = []
+    tempDates = Dict{Int, Vector{DateTime}}()
+    
     for a in anomalies 
         for d in dates
             if d >= a.timeStart && d <= a.timeEnd
-                      push!(tempDates, d)
+                if !(a.index in keys(tempDates)) 
+                    merge!(tempDates, Dict(a.index => []))
+                    push!(tempDates[a.index], d)
+                else
+                    push!(tempDates[a.index], d)
+                end
+            end
+        end
+    end
+
+    return tempDates
+end
+
+function convertAnomalyDatesRange(anomalies, dates)
+
+    tempDates = Dict{Int, Vector{String}}()
+    date_format = DateFormat("dd/mm/yyyy HH:MM:SS p") 
+    for a in anomalies 
+        for d in dates
+            if d >= a.timeStart && d <= a.timeEnd
+                if !(a.index in keys(tempDates)) 
+                    date = Dates.format(d, date_format)
+                    merge!(tempDates, Dict(a.index => String[]))
+                    push!(tempDates[a.index], date)
+                else
+                    date = Dates.format(d, date_format)
+                    push!(tempDates[a.index], date)
+                end
             end
         end
     end
