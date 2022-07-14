@@ -1,5 +1,6 @@
 include("dateTimeFormatter.jl")
 include("filter.jl")
+include("loader.jl")
 
 
 using Pkg
@@ -7,10 +8,11 @@ Pkg.add("CSV")
 Pkg.add("DataFrames")
 Pkg.add("Dates")
 Pkg.add("Plots")
+
+using Plots
 using CSV
 using DataFrames
 using Dates
-using Plots
 
 # path = joinpath(pwd(), "SWaT_Dataset_Attack_v0_CSV.csv")
 # df = CSV.File(path) |> DataFrame
@@ -28,6 +30,7 @@ dates = df[!, :Timestamp]
 
 date_format = DateFormat(" d/m/y H:M:S p") 
 datesToDisplay = Dates.DateTime.(dates,date_format)
+datesForComparing = Dates.DateTime.(dates,date_format)
 datesToDisplay = Dates.Date.(datesToDisplay)
 unique!(datesToDisplay)
 Dates.Second(datesToDisplay[end] - datesToDisplay[1])
@@ -44,16 +47,56 @@ colsToPlot = mapslices(x->[x], dfMatrix, dims=1)[2:end]
 
 fig_y = 17 *5 * ncol(df)
 fig_x = 17 * 160
+
+# stages1, anomalies1 = getAnomalies(file_loc)
+# stages1
+# anomalies1
+
+# #filter anomalies
+# filtered_anomalies = []
+  
+# for anomaly in anomalies1
+#     for point in anomaly.attackPoints
+#         if occursin("50", point) || occursin("60", point)
+#             push!(filtered_anomalies, anomaly)
+#         end
+#     end
+# end
+# unique!(filtered_anomalies)
+
+display(dates)
+display(colsToPlot)
+plot(1:3,1:3)
+
+
 plot(dates, colsToPlot, layout = 17, size = (fig_x, fig_y), xticks = (0:86400:432000, string.(datesToDisplay)))
 
 
-mutable struct Anomaly
-    index::Int
-    timeStart::DateTime
-    timeEnd::DateTime
-    attackPoints::Vector{Any}
-    attackStages::Vector{Any}
+
+
+# anomalyDates = getAnomalyDatesRange(anomalies, dates)
+# display(anomalyDates)
+
+# for (anomalyIndex, dateRange) in anomalyDates
+#     #plot!(dateRange, )
+# end
+
+
+function getAnomalyDatesRange(anomalies, dates)
+
+    tempDates = Dict{Int, Vector{DateTime}}()
+
+    for a in anomalies 
+        for d in dates
+            if d >= a.timeStart && d <= a.timeEnd
+                      tempDates[a.index].append!(d)
+            end
+        end
+    end
+
+    return tempDates
 end
+
 
 # Dataset Start Time and End Time
 df_time_start = convert(String, df[1, :]["Timestamp"])
@@ -94,7 +137,18 @@ function anomalies(file_loc)
             # extract attack end time
             time_end = row["End Time"]
             dateTime_end = string(date_start, ' ', time_end)
-        
+                        if !(i in stages[stage])
+                    push!(stages[stage], i)
+                end
+            end
+
+            sort!(attack_stages)
+            sort!(attack_points)
+            
+            println("$attack_points, $attack_stages, $dateTime_start, $dateTime_end")
+
+            # define anomaly
+
 
             # extract attack points
             attack_points = []
@@ -111,17 +165,6 @@ function anomalies(file_loc)
                 if !(stage in keys(stages))
                     stages[stage] = []
                 end
-                if !(i in stages[stage])
-                    push!(stages[stage], i)
-                end
-            end
-
-            sort!(attack_stages)
-            sort!(attack_points)
-            
-            println("$attack_points, $attack_stages, $dateTime_start, $dateTime_end")
-
-            # define anomaly
             anomaly = Anomaly(
                 index,
                 dateTime_start,
@@ -152,21 +195,7 @@ function anomalies(file_loc)
 end
 
 
-stages1, anomalies1 = anomalies(file_loc)
-stages1
-anomalies1
 
-#filter anomalies
-filtered_anomalies = []
-  
-for anomaly in anomalies1
-    for point in anomaly.attackPoints
-        if occursin("50", point) || occursin("60", point)
-            push!(filtered_anomalies, anomaly)
-        end
-    end
-end
-unique!(filtered_anomalies)
 #then plot
 # idx = nothing
 # xAxis = 0
