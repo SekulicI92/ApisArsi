@@ -27,6 +27,13 @@ datesToDisplay = Dates.Date.(datesToDisplay)
 unique!(datesToDisplay)
 Dates.Second(datesToDisplay[end] - datesToDisplay[1])
 
+convertedDates = []
+
+for d in dates 
+    date = Dates.DateTime.(d,date_format)
+    push!(convertedDates, date)
+end
+
 p5 = r"50"
 p6 = r"60"
 p7 = r"Timestamp"
@@ -41,11 +48,6 @@ colsToPlot = mapslices(x->[x], dfMatrix, dims=1)[2:end]
 fig_y = 17 *5 * ncol(df) * 5
 fig_x = 17 * 160 * 7
 
-
-t = plot(dates, colsToPlot, layout = (17, 1), size = (fig_x, fig_y), xticks = (0:86400:432000, string.(datesToDisplay)))
-display(t)
-
-
 df_time_start = convert(String, df[1, :]["Timestamp"])
 df_time_end = convert(String, df[df_total_rows, :]["Timestamp"])
 
@@ -54,29 +56,27 @@ file_loc = "List_of_attacks_Final.csv"
 stages1, anomalies1 = getAnomalies(file_loc)
 unique!(anomalies1)
 
-anomalyDates = getAnomalyDatesRange(anomalies1, datesForComparing) 
-tempDates = convertAnomalyDatesRange(anomalies1, datesForComparing)
+anomalyDates = getAnomalyDatesRange(anomalies1, convertedDates) 
+tempDates = convertAnomalyDatesRange(anomalies1, convertedDates)
 
-display(tempDates)
+p = plot(convertedDates, colsToPlot, layout = (17, 1), size = (fig_x, fig_y), xticks = (0:86400:432000, string.(convertedDates)))
 
 for anomaly in anomalies1
     for point in anomaly.attackPoints
         idx = findfirst(x -> x==point, column_names)
-
         if idx !== nothing
-            println(idx)
             idxDateStart = findfirst(x-> x == anomaly.timeStart, datesForComparing)
             idxDateEnd = findfirst(x-> x == anomaly.timeEnd, datesForComparing)
             
-            #trebalo bi izvuci vrednosti kolone koja je attack point u redovima kad se desava anomalija
-            #idxDateStart i idxDateEnd bi trebalo da vrate taj index
-            #ali iz nekog razloga nmg da skontam kako da izvucem taj niz vrednosti
-            forPlot = vec(dfMatrix[idxDateStart:idxDateEnd, idx])
-            display(plot!(subplot = idx, tempDates[anomaly.index], forPlot, color = "darkred"))
-
-            #i onda bi trebalo da moze plotovati
+            #forPlot = vec(dfMatrix[idxDateStart:idxDateEnd, idx])
+    
+            display(plot!(subplot = idx, convertedDates[idxDateStart:idxDateEnd], colsToPlot[idx][idxDateStart:idxDateEnd], color = "darkred", linewidth=3, thickness_scaling = 1))
+            #display(plot!(anomalyDates[anomaly.index], forPlot, color="darkred"))       
         end
     end
 end
+
+
+
 #t2 = plot!(tmpDates, colsToPlot, layout = 17, size = (fig_x, fig_y))
 #display(t2)
