@@ -21,7 +21,7 @@ display(loadedAnomalies)
 ## pa imam tipa oko 100 fajlova samo umesto 700 i nesto
 ## pa da mi ne skipuje nista
 ## inace skipuje sve logove do trenutka kad su poceli napadi
-skipFirst = 715
+skipFirst = 415
 ## ovo se setuje unutar metode na broj fajlova - skipFirst
 maxProcess = -1
 window_size = 100
