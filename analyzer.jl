@@ -28,13 +28,13 @@ mutable struct Detection
     falsePositiveNetworkReq::Int
 end
 
-mutable struct PatternStruct
+mutable struct Pattern
     files:: Vector{Any}
     stats::Dict{String, Stats}
     windows::Dict{String, Vector{Any}}
     window_size:: Int
     precission:: Int
-    detection::Dict{Int, Vector{Detection}}
+    detection::Dict{Int, Detection}
     headers::Vector{Any}
     alerts::Vector{Any}
 end
@@ -51,19 +51,17 @@ totalStats = TotalStats(0, 0, 0, 0, 0)
 
 anomalies_unique = []
 stages_unique = []
-windows = Dict{String, Vector{Int}}()
 precission = 100
-detections = Vector{Detection}()
 window_size = 100
 maxThreads = 12
 
-pattern = PatternStruct(
+pattern = Pattern(
     [],
     Dict{String, Vector{Stats}}(),
     Dict{String, Vector{Any}}(),
     100,
     100,
-    Dict{Int, Vector{Detection}}(),
+    Dict{Int, Detection}(),
     [],
     []
 )
@@ -123,35 +121,35 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
             pattern.headers = names(df)
         end
 
-        #processFile!(file, skipFirst, anomalies)
+        processFile!(file, skipFirst, anomalies)
        
-        while (activeThreads >= maxThreads)
-            i = 0
-            for t in threads
-                i += 1
-                if (istaskdone(t))              
-                    deleteat!(threads, i)
-                    activeThreads -= 1
-                end
-            end
-        end
+        # while (activeThreads >= maxThreads)
+        #     i = 0
+        #     for t in threads
+        #         i += 1
+        #         if (istaskdone(t))              
+        #             deleteat!(threads, i)
+        #             activeThreads -= 1
+        #         end
+        #     end
+        # end
 
-        sleep(0.3)
-        t = Base.Threads.@spawn processFile!(file, skipFirst, anomalies)
-        activeThreads += 1
-        push!(threads, t)
+        # sleep(0.3)
+        # t = Base.Threads.@spawn processFile!(file, skipFirst, anomalies)
+        # activeThreads += 1
+        # push!(threads, t)
         total_processed += 1
     end
 
-    while (length(threads) > 0)
-        i = 0
-        for t in threads
-            i += 1
-            if (istaskdone(t))
-                deleteat!(threads, i)
-            end
-        end
-    end
+    # while (length(threads) > 0)
+    #     i = 0
+    #     for t in threads
+    #         i += 1
+    #         if (istaskdone(t))
+    #             deleteat!(threads, i)
+    #         end
+    #     end
+    # end
 
 
     ## statistika - table1 je broj i lista attack point-a i attack stage-ova
@@ -226,14 +224,14 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
             continue
         end
 
-        total += self.detection[index].detectedNetworkReq
-        detected += self.detection[index].detectedNetworkReq
+        total += pattern.detection[index].detectedNetworkReq
+        detected += pattern.detection[index].detectedNetworkReq
     
-        total += self.detection[index].missedNetworkReq
-        missed += self.detection[index].missedNetworkReq
+        total += pattern.detection[index].missedNetworkReq
+        missed += pattern.detection[index].missedNetworkReq
 
-        total += self.detection[index].falsePositiveNetworkReq
-        false_positive += self.detection[index].falsePositiveNetworkReq
+        total += pattern.detection[index].falsePositiveNetworkReq
+        false_positive += pattern.detection[index].falsePositiveNetworkReq
     end
 
     detection_rate = 0
@@ -373,7 +371,8 @@ function processFile!(file, precission, anomalies)
         date = Dates.Date(year, month, day)
         time = Dates.Time(string(row["time"]), "HH:MM:SS")
         date_time = Dates.DateTime(date, time)
-        anomaliesByTimestamp = getAnomaliesByTimestamp!(date_time, anomalies)
+
+        anomaliesByTimestamp = getAnomaliesByTimestamp!(date_time, anomalies)   
 
     
         for anomaly in anomaliesByTimestamp
@@ -412,8 +411,10 @@ function processFile!(file, precission, anomalies)
         # display(value)
 
 
+
+        # bilo je anomalies u length
         ongoingAttack = false
-        if(length(anomalies) > 0)
+        if(length(anomaliesByTimestamp) > 0)
             ongoingAttack = true
         end
 
@@ -427,9 +428,26 @@ function processFile!(file, precission, anomalies)
 
         # treba izvuci attackType 2 je hardcodovan attack type trenutno 
 
-            try 
+            # try 
+            #     detection = pattern.detection[index]
+            # catch KeyError
+            #     detection = Detection(
+            #         false,
+            #         false,
+            #         false,
+            #         "2" ,
+            #         0,
+            #         0,
+            #         0,
+            #     )
+            #     push!(pattern.detection, detection)
+            # end
+        
+            flag = index in keys(pattern.detection)
+
+            if (flag) 
                 detection = pattern.detection[index]
-            catch e
+            else 
                 detection = Detection(
                     false,
                     false,
@@ -439,13 +457,13 @@ function processFile!(file, precission, anomalies)
                     0,
                     0,
                 )
-                push!(pattern.detection, detection)
+                merge!(pattern.detection, Dict(index => detection))
             end
-
 
             isOk = false
             
-            for attackPoint in anomalies_unique
+            #bilo je unique_anomalies
+            for attackPoint in anomaly.attackPoints
                 if attackPoint == destination
                     isOk = true    
                 end
@@ -455,7 +473,7 @@ function processFile!(file, precission, anomalies)
                 continue
             end
 
-            isAttackDetected = detectAttack(destination)
+            isAttackDetected = detectAttack!(destination)
 
             if ongoingAttack == true
                 if isAttackDetected == true
@@ -468,8 +486,8 @@ function processFile!(file, precission, anomalies)
     
         # drugi put poziva detekciju? za False positive?
 
-        if length(anomalies_unique) == 0
-            isAttackDetected = detect_attack!(destination)
+        if length(anomaliesByTimestamp) == 0
+            isAttackDetected = detectAttack!(destination)
             if isAttackDetected == false
                 continue
             end
@@ -477,7 +495,9 @@ function processFile!(file, precission, anomalies)
 
         ## zasto nulta pozicija?
 
-        if (length(pattern.detection) == 0)
+        flag = 1 in keys(pattern.detection)
+
+        if (!flag)
             dt = Detection(
                 false,
                 false,
@@ -487,13 +507,12 @@ function processFile!(file, precission, anomalies)
                 0,
                 0,
             )
-
-            push!(pattern.detections, dt)
+            merge!(pattern.detection, Dict(1 => dt))
+          
         end
 
-        pattern.detections[1].falsePositiveNetworkReq += 1
+        pattern.detection[1].falsePositiveNetworkReq += 1
     end
-
     return true
 end
 
@@ -507,7 +526,7 @@ function from_hex(h, n)
 end
 
 
-function detect_attack!(name)
+function detectAttack!(name)
 
 if length(pattern.windows[name]) < window_size
     return false
@@ -519,7 +538,7 @@ average = median(pattern.windows[name])
 min_border = average - stdev
 max_border = average + stdev
 
-alerts = []
+
 
 for idx in range(1, length(pattern.windows[name])-1)
     value = pattern.windows[name][idx]
