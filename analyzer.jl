@@ -121,35 +121,35 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
             pattern.headers = names(df)
         end
 
-        processFile!(file, skipFirst, anomalies)
-       
-        # while (activeThreads >= maxThreads)
-        #     i = 0
-        #     for t in threads
-        #         i += 1
-        #         if (istaskdone(t))              
-        #             deleteat!(threads, i)
-        #             activeThreads -= 1
-        #         end
-        #     end
-        # end
 
-        # sleep(0.3)
-        # t = Base.Threads.@spawn processFile!(file, skipFirst, anomalies)
-        # activeThreads += 1
-        # push!(threads, t)
+       
+        while (activeThreads >= maxThreads)
+            i = 0
+            for t in threads
+                i += 1
+                if (istaskdone(t))              
+                    deleteat!(threads, i)
+                    activeThreads -= 1
+                end
+            end
+        end
+
+        sleep(0.3)
+        t = Base.Threads.@spawn processFile!(file, skipFirst, anomalies)
+        activeThreads += 1
+        push!(threads, t)
         total_processed += 1
     end
 
-    # while (length(threads) > 0)
-    #     i = 0
-    #     for t in threads
-    #         i += 1
-    #         if (istaskdone(t))
-    #             deleteat!(threads, i)
-    #         end
-    #     end
-    # end
+    while (length(threads) > 0)
+        i = 0
+        for t in threads
+            i += 1
+            if (istaskdone(t))
+                deleteat!(threads, i)
+            end
+        end
+    end
 
 
     ## statistika - table1 je broj i lista attack point-a i attack stage-ova
@@ -193,17 +193,17 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
         if pattern.detection[index].attackType != "Network"
             continue
         end
-        ## ne radi mi vise mozak, ne kontam sto ovde appenduje niz vrednosti, 
-        ## ne znam jel ja treba da uradim push! u stats_sorted il sta
-        # stats_sorted.append([
-        #     index,
-        #     self.detection[index]["detected"],
-        #     self.detection[index]["missed"],
-        #     self.detection[index]["attack_type"],
-        #     self.detection[index]["detected_network_requests"],
-        #     self.detection[index]["missed_network_requests"],
-        #     self.detection[index]["false_positive_network_requests"],
-        # ])
+        # ne radi mi vise mozak, ne kontam sto ovde appenduje niz vrednosti, 
+        # ne znam jel ja treba da uradim push! u stats_sorted il sta
+        stats_sorted.append([
+            index,
+            pattern.detection[index].detected,
+            pattern.detection[index].missed,
+            pattern.detection[index].attackType,
+            pattern.detection[index].detectedNetworkReq,
+            pattern.detection[index].missedNetworkReq,
+            pattern.detection[index].FalsePositiveNetworkReq,
+        ])
     end
             
     # stats_sorted = sorted(stats_sorted, key=lambda x: x[0])
