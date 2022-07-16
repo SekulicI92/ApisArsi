@@ -428,20 +428,6 @@ function processFile!(file, precission, anomalies)
 
         # treba izvuci attackType 2 je hardcodovan attack type trenutno 
 
-            # try 
-            #     detection = pattern.detection[index]
-            # catch KeyError
-            #     detection = Detection(
-            #         false,
-            #         false,
-            #         false,
-            #         "2" ,
-            #         0,
-            #         0,
-            #         0,
-            #     )
-            #     push!(pattern.detection, detection)
-            # end
         
             flag = index in keys(pattern.detection)
 
@@ -571,25 +557,17 @@ end
 
 function moving_window!(name, value)
     
-    # tmp = -1
-    # tmp = windows[name]
-
-    # if ( tmp == -1) 
-    #     windows[name] = []
-    # end
-    # display(windows)
-
     if name in keys(windows)
-    
-    else
 
+    else
         temp = Dict{String, Vector{Int}}(name => [])
         merge!(pattern.windows, temp)
-        # display(windows)
     end
 
+    # ovde je vrv greska, sta je dusan hteo ovime self.windows[name] = self.windows[name][1:]
+
     if length(pattern.windows[name]) > window_size
-        pattern.windows[name] = pattern.windows[name][1:end]
+        pattern.windows[name] = pattern.windows[name][2:end]
     end
 
     push!(pattern.windows[name],value)
