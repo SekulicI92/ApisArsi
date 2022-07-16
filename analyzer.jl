@@ -120,36 +120,36 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
             df = CSV.File(file) |> DataFrame
             pattern.headers = names(df)
         end
+ 
+        # while (activeThreads >= maxThreads)
+        #     i = 0
+        #     for t in threads
+        #         i += 1
+        #         if (istaskdone(t))              
+        #             deleteat!(threads, i)
+        #             activeThreads -= 1
+        #         end
+        #     end
+        # end
 
+        # sleep(0.3)
+        # t = Base.Threads.@spawn processFile!(file, skipFirst, anomalies)
+        # activeThreads += 1
+        # push!(threads, t)
 
-       
-        while (activeThreads >= maxThreads)
-            i = 0
-            for t in threads
-                i += 1
-                if (istaskdone(t))              
-                    deleteat!(threads, i)
-                    activeThreads -= 1
-                end
-            end
-        end
-
-        sleep(0.3)
-        t = Base.Threads.@spawn processFile!(file, skipFirst, anomalies)
-        activeThreads += 1
-        push!(threads, t)
+        processFile!(file, skipFirst, anomalies)
         total_processed += 1
     end
 
-    while (length(threads) > 0)
-        i = 0
-        for t in threads
-            i += 1
-            if (istaskdone(t))
-                deleteat!(threads, i)
-            end
-        end
-    end
+    # while (length(threads) > 0)
+    #     i = 0
+    #     for t in threads
+    #         i += 1
+    #         if (istaskdone(t))
+    #             deleteat!(threads, i)
+    #         end
+    #     end
+    # end
 
 
     ## statistika - table1 je broj i lista attack point-a i attack stage-ova
@@ -188,23 +188,23 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
         end
     end
 
-    stats_sorted = []
-    for index in keys(pattern.detection)
-        if pattern.detection[index].attackType != "Network"
-            continue
-        end
-        # ne radi mi vise mozak, ne kontam sto ovde appenduje niz vrednosti, 
-        # ne znam jel ja treba da uradim push! u stats_sorted il sta
-        stats_sorted.append([
-            index,
-            pattern.detection[index].detected,
-            pattern.detection[index].missed,
-            pattern.detection[index].attackType,
-            pattern.detection[index].detectedNetworkReq,
-            pattern.detection[index].missedNetworkReq,
-            pattern.detection[index].FalsePositiveNetworkReq,
-        ])
-    end
+    # stats_sorted = []
+    # for index in keys(pattern.detection)
+    #     if pattern.detection[index].attackType != "Network"
+    #         continue
+    #     end
+    #     # ne radi mi vise mozak, ne kontam sto ovde appenduje niz vrednosti, 
+    #     # ne znam jel ja treba da uradim push! u stats_sorted il sta
+    #     stats_sorted.append([
+    #         index,
+    #         pattern.detection[index].detected,
+    #         pattern.detection[index].missed,
+    #         pattern.detection[index].attackType,
+    #         pattern.detection[index].detectedNetworkReq,
+    #         pattern.detection[index].missedNetworkReq,
+    #         pattern.detection[index].FalsePositiveNetworkReq,
+    #     ])
+    # end
             
     # stats_sorted = sorted(stats_sorted, key=lambda x: x[0])
     # for s in stats_sorted:
@@ -373,7 +373,6 @@ function processFile!(file, precission, anomalies)
         date_time = Dates.DateTime(date, time)
 
         anomaliesByTimestamp = getAnomaliesByTimestamp!(date_time, anomalies)   
-
     
         for anomaly in anomaliesByTimestamp
             for attack_point in anomaly.attackPoints
@@ -405,12 +404,8 @@ function processFile!(file, precission, anomalies)
             continue
         end
 
-        ## unhexify
-        # display(fixedMbValue)
+      
         value = tryparse(Float64, fixedMbValue)
-        # display(value)
-
-
 
         # bilo je anomalies u length
         ongoingAttack = false
@@ -426,11 +421,8 @@ function processFile!(file, precission, anomalies)
         for anomaly in anomaliesByTimestamp
             index = anomaly.index
 
-        # treba izvuci attackType 2 je hardcodovan attack type trenutno 
-
-        
             flag = index in keys(pattern.detection)
-
+      
             if (flag) 
                 detection = pattern.detection[index]
             else 
@@ -447,8 +439,7 @@ function processFile!(file, precission, anomalies)
             end
 
             isOk = false
-            
-            #bilo je unique_anomalies
+    
             for attackPoint in anomaly.attackPoints
                 if attackPoint == destination
                     isOk = true    
@@ -463,6 +454,7 @@ function processFile!(file, precission, anomalies)
 
             if ongoingAttack == true
                 if isAttackDetected == true
+                    display("Uvecao sam detectedNetworkReq")
                     pattern.detection[index].detectedNetworkReq += 1
                 else
                     pattern.detection[index].missedNetworkReq += 1
@@ -470,9 +462,8 @@ function processFile!(file, precission, anomalies)
             end
         end
     
-        # drugi put poziva detekciju? za False positive?
-
         if length(anomaliesByTimestamp) == 0
+           
             isAttackDetected = detectAttack!(destination)
             if isAttackDetected == false
                 continue
@@ -518,13 +509,15 @@ if length(pattern.windows[name]) < window_size
     return false
 end
 
+
+
 stdev = mean(pattern.windows[name])
 average = median(pattern.windows[name])
 
 min_border = average - stdev
 max_border = average + stdev
 
-
+empty!(pattern.alerts)
 
 for idx in range(1, length(pattern.windows[name])-1)
     value = pattern.windows[name][idx]
@@ -546,25 +539,27 @@ end
 # minimum 10% of window size must be detection rate
 minAlerts = window_size/100*10 
 maxAlerts = window_size/100*25 
+
+flag = false
+
 if length(pattern.alerts) > minAlerts && length(pattern.alerts) < maxAlerts
     # println("alerts = $(length(alerts)) windows size =  $window_size stdev = $stdev avg = $average")
-    return true
+    flag = true
+else
+    flag = false
 end
 
-return false
+    return flag
 end
 
 
 function moving_window!(name, value)
     
-    if name in keys(windows)
-
+    if name in keys(pattern.windows)
     else
         temp = Dict{String, Vector{Int}}(name => [])
         merge!(pattern.windows, temp)
     end
-
-    # ovde je vrv greska, sta je dusan hteo ovime self.windows[name] = self.windows[name][1:]
 
     if length(pattern.windows[name]) > window_size
         pattern.windows[name] = pattern.windows[name][2:end]

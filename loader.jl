@@ -108,16 +108,16 @@ function getAnomalies(file_loc)
     # df.reset_index()
    
 
-# #filter anomalies
-# filtered_anomalies = []
+#filter anomalies
+filtered_anomalies = []
   
-# for anomaly in anomalies
-#     for point in anomaly.attackPoints
-#         if occursin("50", point) || occursin("60", point)
-#             push!(filtered_anomalies, anomaly)
-#         end
-#     end
-# end
+for anomaly in anomalies
+    for point in anomaly.attackPoints
+        if occursin("50", point) || occursin("60", point)
+            push!(filtered_anomalies, anomaly)
+        end
+    end
+end
 
 return [ stages, unique!(anomalies) ]
 end
