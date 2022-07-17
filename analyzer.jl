@@ -51,7 +51,7 @@ totalStats = TotalStats(0, 0, 0, 0, 0)
 
 anomalies_unique = []
 stages_unique = []
-precission = 100
+precission = 5
 window_size = 100
 maxThreads = 12
 
@@ -188,32 +188,6 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
         end
     end
 
-    # stats_sorted = []
-    # for index in keys(pattern.detection)
-    #     if pattern.detection[index].attackType != "Network"
-    #         continue
-    #     end
-    #     # ne radi mi vise mozak, ne kontam sto ovde appenduje niz vrednosti, 
-    #     # ne znam jel ja treba da uradim push! u stats_sorted il sta
-    #     stats_sorted.append([
-    #         index,
-    #         pattern.detection[index].detected,
-    #         pattern.detection[index].missed,
-    #         pattern.detection[index].attackType,
-    #         pattern.detection[index].detectedNetworkReq,
-    #         pattern.detection[index].missedNetworkReq,
-    #         pattern.detection[index].FalsePositiveNetworkReq,
-    #     ])
-    # end
-            
-    # stats_sorted = sorted(stats_sorted, key=lambda x: x[0])
-    # for s in stats_sorted:
-    #     if s[0] == 0:
-    #         s[0] = "*"
-    #     table2.append(s)
-
-
-
     # stats for network requests
     total = 0
     detected = 0 
@@ -292,15 +266,12 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
         miss_rate = missed * 100.0 / total 
     end
 
-    # detection_rate = "%.2f" %(detection_rate)
-    # miss_rate = "%.2f" %(miss_rate)
-
     table4 = [
         [ "Total", "Detected", "Detection %", "Missed", "Miss %" ],
         [ total, detected, detection_rate, missed, miss_rate ],
     ]
 
-    return [ table1, table2, table3, table4 ]
+    return [ table1, table3, table4 ]
 end
 
 function processFile!(file, precission, anomalies)
@@ -373,7 +344,7 @@ function processFile!(file, precission, anomalies)
         date_time = Dates.DateTime(date, time)
 
         anomaliesByTimestamp = getAnomaliesByTimestamp!(date_time, anomalies)   
-    
+        
         for anomaly in anomaliesByTimestamp
             for attack_point in anomaly.attackPoints
                 push!(anomalies_unique, attack_point)
@@ -404,8 +375,9 @@ function processFile!(file, precission, anomalies)
             continue
         end
 
-      
-        value = tryparse(Float64, fixedMbValue)
+        temp = chop(fixedMbValue, head=0, tail = 6)
+        value = tryparse(Float64, temp)
+        
 
         # bilo je anomalies u length
         ongoingAttack = false
@@ -442,7 +414,8 @@ function processFile!(file, precission, anomalies)
     
             for attackPoint in anomaly.attackPoints
                 if attackPoint == destination
-                    isOk = true    
+                    isOk = true  
+                    break  
                 end
             end
             
@@ -453,8 +426,8 @@ function processFile!(file, precission, anomalies)
             isAttackDetected = detectAttack!(destination)
 
             if ongoingAttack == true
+            
                 if isAttackDetected == true
-                    display("Uvecao sam detectedNetworkReq")
                     pattern.detection[index].detectedNetworkReq += 1
                 else
                     pattern.detection[index].missedNetworkReq += 1
@@ -467,29 +440,29 @@ function processFile!(file, precission, anomalies)
             isAttackDetected = detectAttack!(destination)
             if isAttackDetected == false
                 continue
+            else
+       
+                flag = 1 in keys(pattern.detection)
+
+                if (!flag)
+                dt = Detection(
+                  false,
+                  false,
+                  false,
+                  "2" ,
+                  0,
+                  0,
+                  0,
+                )
+                merge!(pattern.detection, Dict(1 => dt))
+          
+                end
+
+            pattern.detection[1].falsePositiveNetworkReq += 1
             end
         end
-
-        ## zasto nulta pozicija?
-
-        flag = 1 in keys(pattern.detection)
-
-        if (!flag)
-            dt = Detection(
-                false,
-                false,
-                false,
-                "2" ,
-                0,
-                0,
-                0,
-            )
-            merge!(pattern.detection, Dict(1 => dt))
-          
-        end
-
-        pattern.detection[1].falsePositiveNetworkReq += 1
     end
+
     return true
 end
 
@@ -508,8 +481,6 @@ function detectAttack!(name)
 if length(pattern.windows[name]) < window_size
     return false
 end
-
-
 
 stdev = mean(pattern.windows[name])
 average = median(pattern.windows[name])
@@ -532,23 +503,24 @@ for idx in range(1, length(pattern.windows[name])-1)
     end
 
     if isForAlert
+
         push!(pattern.alerts, idx)
     end       
 end
 
 # minimum 10% of window size must be detection rate
 minAlerts = window_size/100*10 
-maxAlerts = window_size/100*25 
+maxAlerts = window_size/100*45 
 
-flag = false
+flag = true
 
 if length(pattern.alerts) > minAlerts && length(pattern.alerts) < maxAlerts
-    # println("alerts = $(length(alerts)) windows size =  $window_size stdev = $stdev avg = $average")
+    #println("alerts = $(length(pattern.alerts)) minAlerts =  $minAlerts maxAlerts = $maxAlerts")
     flag = true
 else
+    #println("alerts = $(length(pattern.alerts)) minAlerts =  $minAlerts maxAlerts = $maxAlerts")
     flag = false
 end
-
     return flag
 end
 

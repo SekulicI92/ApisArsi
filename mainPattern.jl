@@ -21,13 +21,14 @@ display(loadedAnomalies)
 ## pa imam tipa oko 100 fajlova samo umesto 700 i nesto
 ## pa da mi ne skipuje nista
 ## inace skipuje sve logove do trenutka kad su poceli napadi
-skipFirst = 415
 ## ovo se setuje unutar metode na broj fajlova - skipFirst
+
+skipFirst = 415
 maxProcess = -1
 window_size = 100
-table1, table2, table3, table4 = processAll(csvFiles, loadedAnomalies, skipFirst, maxProcess, window_size)
+display(length(loadedAnomalies))
+table1, table2, table3 = processAll(csvFiles, loadedAnomalies, skipFirst, maxProcess, window_size)
 
 display(table1)
 display(table2)
 display(table3)
-display(table4)
