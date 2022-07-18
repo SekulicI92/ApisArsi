@@ -67,16 +67,8 @@ for anomaly in anomalies1
         if idx !== nothing
             idxDateStart = findfirst(x-> x == anomaly.timeStart, datesForComparing)
             idxDateEnd = findfirst(x-> x == anomaly.timeEnd, datesForComparing)
-            
-            #forPlot = vec(dfMatrix[idxDateStart:idxDateEnd, idx])
-    
-            display(plot!(subplot = idx, convertedDates[idxDateStart:idxDateEnd], colsToPlot[idx][idxDateStart:idxDateEnd], color = "darkred", linewidth=3, thickness_scaling = 1))
-            #display(plot!(anomalyDates[anomaly.index], forPlot, color="darkred"))       
+
+            display(plot!(subplot = idx, title = point, convertedDates[idxDateStart:idxDateEnd], colsToPlot[idx][idxDateStart:idxDateEnd], color = "darkred", linewidth=3, thickness_scaling = 1))
         end
     end
 end
-
-
-
-#t2 = plot!(tmpDates, colsToPlot, layout = 17, size = (fig_x, fig_y))
-#display(t2)

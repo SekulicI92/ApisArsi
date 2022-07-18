@@ -1,6 +1,5 @@
 include("filter.jl")
 
-
 using Pkg
 Pkg.add("CSV")
 Pkg.add("DataFrames")
@@ -28,75 +27,69 @@ function getAnomalies(file_loc)
     df = CSV.File(file_loc) |> DataFrame
 
     for (index, row) in enumerate(eachrow(df))
-    #    try
-            # skip if there is no attack
-            try
-                tmp = convert(Int, row["Attack #"])
-            catch
-                continue
+        # skip if there is no attack
+        try
+            tmp = convert(Int, row["Attack #"])
+        catch
+            continue
+        end
+        # skip if there is no attack
+        attack_point = convert(String, row["Attack Point"])
+        attack_point = replace(attack_point, ";" => ",")
+        tmp = split(attack_point, ",")
+        if row["Attack Point"] == "No Physical Impact Attack"
+            continue
+        end
+        # extract attack start time
+        date_format = DateFormat("d/m/y H:M:S") 
+        dateTime_start = Dates.DateTime(row["Start Time"],date_format)
+        date_start = Dates.Date(dateTime_start)
+        time_start = Dates.Time(dateTime_start)
+
+        # extract attack end time
+        time_end = row["End Time"]
+        dateTime_end = string(date_start, ' ', time_end)
+        date_format2 = DateFormat("y-m-d H:M:S") 
+        dateTime_end = Dates.DateTime(dateTime_end, date_format2)
+
+        # extract attack points
+        attack_points = []
+        attack_stages = []
+        for i in tmp
+            i = strip(i, [' '])
+            i = uppercase(i)
+            i = replace(i, "-" => "")
+            push!(attack_points, i)
+
+            stage = get_stage(i)
+            push!(attack_stages, stage)
+
+            if !(stage in keys(stages))
+                stages[stage] = []
             end
-            # skip if there is no attack
-            attack_point = convert(String, row["Attack Point"])
-            attack_point = replace(attack_point, ";" => ",")
-            tmp = split(attack_point, ",")
-            if row["Attack Point"] == "No Physical Impact Attack"
-                continue
+            if !(i in stages[stage])
+                push!(stages[stage], i)
             end
-            # extract attack start time
-            date_format = DateFormat("d/m/y H:M:S") 
-            dateTime_start = Dates.DateTime(row["Start Time"],date_format)
-            date_start = Dates.Date(dateTime_start)
-            time_start = Dates.Time(dateTime_start)
+        end
 
-            # extract attack end time
-            time_end = row["End Time"]
-            dateTime_end = string(date_start, ' ', time_end)
-            date_format2 = DateFormat("y-m-d H:M:S") 
-            dateTime_end = Dates.DateTime(dateTime_end, date_format2)
-
-            # extract attack points
-            attack_points = []
-            attack_stages = []
-            for i in tmp
-                i = strip(i, [' '])
-                i = uppercase(i)
-                i = replace(i, "-" => "")
-                push!(attack_points, i)
-
-                stage = get_stage(i)
-                push!(attack_stages, stage)
-
-                if !(stage in keys(stages))
-                    stages[stage] = []
-                end
-                if !(i in stages[stage])
-                    push!(stages[stage], i)
-                end
-            end
-
-            sort!(attack_stages)
-            sort!(attack_points)
+        sort!(attack_stages)
+        sort!(attack_points)
             
-            println("$attack_points, $attack_stages, $dateTime_start, $dateTime_end")
+        println("$attack_points, $attack_stages, $dateTime_start, $dateTime_end")
 
-            # define anomaly
-            anomaly = Anomaly(
-                index,
-                dateTime_start,
-                dateTime_end,
-                attack_points,
-                attack_stages,
-            )
+        # define anomaly
+        anomaly = Anomaly(
+            index,
+            dateTime_start,
+            dateTime_end,
+            attack_points,
+            attack_stages,
+        )
             
-            push!(times, dateTime_start)
-            push!(times, dateTime_end)
+        push!(times, dateTime_start)
+        push!(times, dateTime_end)
 
-            push!(anomalies, anomaly)
-    #    catch
-    #         print("Error: %s" %(str(sys.exc_info())))
-    #         print("Row value: %s" %(row))
-    #         print("Index: %d" %(index))
-    #    end
+        push!(anomalies, anomaly)
     end
 
     sort!(times)
@@ -104,29 +97,23 @@ function getAnomalies(file_loc)
     time_end = times[end]
     
     print("First anomaly detected $time_start")
+     
+    #filter anomalies
+    filtered_anomalies = []
     
-    # df.reset_index()
-   
-
-#filter anomalies
-filtered_anomalies = []
-  
-for anomaly in anomalies
-    for point in anomaly.attackPoints
-        if occursin("50", point) || occursin("60", point)
-            push!(filtered_anomalies, anomaly)
+    for anomaly in anomalies
+        for point in anomaly.attackPoints
+            if occursin("50", point) || occursin("60", point)
+                push!(filtered_anomalies, anomaly)
+            end
         end
     end
+
+    return [ stages, unique!(anomalies) ]
 end
 
-return [ stages, unique!(anomalies) ]
-end
-
+#load list of files from specified folder
 function loadNetworkData(path)
-    """
-    load list of files
-    """
-
     csvFiles = []
     total_files = 0
     total_loaded = 0
@@ -140,8 +127,6 @@ function loadNetworkData(path)
         if contains(file,".csv")
            
             csvFiles = push!(csvFiles, file)
-         
-
             total_loaded += 1
         else
             total_skipped += 1
@@ -156,7 +141,7 @@ function loadNetworkData(path)
         ["Loaded" , total_loaded]
     ]
 
-        return  csvFiles, table
+    return  csvFiles, table
 end
 
 

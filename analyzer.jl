@@ -33,7 +33,7 @@ mutable struct Pattern
     stats::Dict{String, Stats}
     windows::Dict{String, Vector{Any}}
     window_size:: Int
-    precission:: Int
+    precision:: Int
     detection::Dict{Int, Detection}
     headers::Vector{Any}
     alerts::Vector{Any}
@@ -51,30 +51,28 @@ totalStats = TotalStats(0, 0, 0, 0, 0)
 
 anomalies_unique = []
 stages_unique = []
-precission = 5
 window_size = 100
-maxThreads = 12
+maxThreads = 6
 
 pattern = Pattern(
     [],
     Dict{String, Vector{Stats}}(),
     Dict{String, Vector{Any}}(),
     100,
-    100,
+    5,
     Dict{Int, Detection}(),
     [],
     []
 )
 
-function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
+function processAll(csvFiles, anomalies, skipFirst, maxProcess, windowSize)
     pattern.files = csvFiles
     headers = []
     threads = []
-    window_size = window_size
+    window_size = windowSize
 
     for anomaly in anomalies
         ## time_start and time_end are of DateTime type and in format: "d/m/y H:M:S"
-        ## tako su sacuvano u anomaly objektu, tako da sam zaobisla Dusanov normalize
         time_start = anomaly.timeStart
         time_end = anomaly.timeEnd
         tag = string(time_start, "_", time_end)
@@ -90,11 +88,9 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
         push!(pattern.stats[tag].anomalies, anomaly)
     end
 
-    ## sluze samo za statistiku, ispisuju se dole u petlji
     iterator = 0
     total_processed = 0
 
-    ## setovanje max broja procesa, tj broja threadova
     if maxProcess == -1
         maxProcess = length(pattern.files) - skipFirst
     end
@@ -121,38 +117,36 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
             pattern.headers = names(df)
         end
  
-        # while (activeThreads >= maxThreads)
-        #     i = 0
-        #     for t in threads
-        #         i += 1
-        #         if (istaskdone(t))              
-        #             deleteat!(threads, i)
-        #             activeThreads -= 1
-        #         end
-        #     end
-        # end
+        while (activeThreads >= maxThreads)
+            i = 0
+            for t in threads
+                i += 1
+                if (istaskdone(t))              
+                    deleteat!(threads, i)
+                    activeThreads -= 1
+                end
+            end
+        end
 
-        # sleep(0.3)
-        # t = Base.Threads.@spawn processFile!(file, skipFirst, anomalies)
-        # activeThreads += 1
-        # push!(threads, t)
+        sleep(0.3)
+        t = Base.Threads.@spawn processFile!(file, skipFirst, anomalies)
+        activeThreads += 1
+        push!(threads, t)
 
-        processFile!(file, skipFirst, anomalies)
+        # processFile!(file, pattern.precision, anomalies)
         total_processed += 1
     end
 
-    # while (length(threads) > 0)
-    #     i = 0
-    #     for t in threads
-    #         i += 1
-    #         if (istaskdone(t))
-    #             deleteat!(threads, i)
-    #         end
-    #     end
-    # end
+    while (length(threads) > 0)
+        i = 0
+        for t in threads
+            i += 1
+            if (istaskdone(t))
+                deleteat!(threads, i)
+            end
+        end
+    end
 
-
-    ## statistika - table1 je broj i lista attack point-a i attack stage-ova
     totalStats.attackPoints = length(unique!(anomalies_unique))
     totalStats.attackStages = length(unique!(stages_unique))
 
@@ -164,12 +158,6 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
         [ totalStats.rows, totalStats.attackPoints, attack_points, totalStats.attackStages, attack_stages]
     ]        
 
-    ## malo smislenija statistika - detektovani, promaseni, isto to za network tipove, false positives
-    table2 = [
-        [ "Attack #", "Detected", "Missed", "Attack Type", "Detected network requests",  "Missed network requests", "False positive network requests" ],
-    ]
-
-    ## ovo sam sve samo prepakovala na Julia-u, ne mogu da testiram nista bez process metode
     for index in keys(pattern.detection)
         if pattern.detection[index].detectedNetworkReq > 0
             pattern.detection[index].detected = true
@@ -204,7 +192,6 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
         total += pattern.detection[index].missedNetworkReq
         missed += pattern.detection[index].missedNetworkReq
 
-        total += pattern.detection[index].falsePositiveNetworkReq
         false_positive += pattern.detection[index].falsePositiveNetworkReq
     end
 
@@ -223,14 +210,9 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
         false_positive_rate = false_positive * 100.0 / total 
     end
 
-    ## treba naci kako se formatira float, ako je uopste neophodno
-    # detection_rate = "%.2f" %(detection_rate)
-    # miss_rate = "%.2f" %(miss_rate)
-    # false_positive_rate = "%.2f" %(false_positive_rate)
-
-    table3 = [
-        [ "Total", "Detected", "Detection %", "Missed", "Miss %", "False Positive", "False Positive %" ],
-        [ total, detected, detection_rate, missed, miss_rate, false_positive, false_positive_rate ],
+    table2 = [
+        [ "Total", "Detected", "Detection %", "Missed", "Miss %"],
+        [ total, detected, detection_rate, missed, miss_rate],
     ]
 
     # stats for detection of anomalies
@@ -266,15 +248,15 @@ function processAll(csvFiles, anomalies, skipFirst, maxProcess, window_size)
         miss_rate = missed * 100.0 / total 
     end
 
-    table4 = [
+    table3 = [
         [ "Total", "Detected", "Detection %", "Missed", "Miss %" ],
         [ total, detected, detection_rate, missed, miss_rate ],
     ]
 
-    return [ table1, table3, table4 ]
+    return [ table1, table2, table3 ]
 end
 
-function processFile!(file, precission, anomalies)
+function processFile!(file, precision, anomalies)
 
     it = 0
     df = CSV.File(file) |> DataFrame
@@ -283,7 +265,7 @@ function processFile!(file, precission, anomalies)
         
         it += 1
 
-        if it % precission != 0
+        if it % precision != 0
             continue
         end
 
@@ -293,7 +275,6 @@ function processFile!(file, precission, anomalies)
         month = ""
         year = ""
 
-        # display(date)
         if contains(date, "-")
             day = tryparse(Int32, SubString(date, 1, 2))
             if day === nothing
@@ -377,9 +358,7 @@ function processFile!(file, precission, anomalies)
 
         temp = chop(fixedMbValue, head=0, tail = 6)
         value = tryparse(Float64, temp)
-        
 
-        # bilo je anomalies u length
         ongoingAttack = false
         if(length(anomaliesByTimestamp) > 0)
             ongoingAttack = true
@@ -482,7 +461,7 @@ if length(pattern.windows[name]) < window_size
     return false
 end
 
-stdev = mean(pattern.windows[name])
+stdev = std(pattern.windows[name])
 average = median(pattern.windows[name])
 
 min_border = average - stdev
